@@ -47,15 +47,33 @@ from pathlib import Path
 from typing import Any
 import argparse
 import json
+import sys
 
 import numpy as np
 import pandas as pd
 import yaml
 
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_CONFIG_PATH = PROJECT_ROOT / "config" / "hgf_random_walk.yaml"
-DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "outputs" / "hgf_walk_outputs"
+PROJECT_ROOT = next(
+    p
+    for p in Path(__file__).resolve().parents
+    if (p / "src").is_dir() and (p / "config").is_dir()
+)
+
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+
+from src.utils.paths import (
+    CONFIG_DIR,
+    DEFAULT_ENVIRONMENT_DIR,
+)
+
+DEFAULT_CONFIG_PATH = (
+    CONFIG_DIR / "hgf_random_walk_local_A.yaml"
+)
+
+DEFAULT_OUTPUT_DIR = DEFAULT_ENVIRONMENT_DIR
 
 
 @dataclass(frozen=True)
@@ -775,7 +793,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
         "--config",
         type=str,
         default=str(DEFAULT_CONFIG_PATH),
-        help="Path to hgf_random_walk.yaml.",
+        help="Path to an HGF random-walk environment YAML config.",
     )
 
     parser.add_argument(
@@ -801,8 +819,8 @@ def main() -> None:
     or explicitly:
 
         python src/environments/two_stream_hgf_random_walk.py \\
-            --config config/hgf_random_walk.yaml \\
-            --output-dir outputs/hgf_walk_outputs
+            --config config/hgf_random_walk_local_A.yaml \\
+            --output-dir outputs/hgf_walk_outputs/local_A
     """
 
     parser = build_arg_parser()

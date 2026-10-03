@@ -19,7 +19,7 @@ A model run directory containing:
 
 For example:
 
-    outputs/hgf_walk_outputs/model_runs/shared_volatility/node_trajectories.csv
+    outputs/hgf_walk_outputs/local_A/model_runs/shared_volatility/node_trajectories.csv
 
 Outputs
 -------
@@ -32,9 +32,9 @@ Run from project root
 Example:
 
     python scripts/simulate_continuous_predictions.py \\
-        --model-runs-dir outputs/hgf_walk_outputs/model_runs \\
+        --model-runs-dir outputs/hgf_walk_outputs/local_A/model_runs \\
         --model-name shared_volatility \\
-        --output-dir outputs/hgf_walk_outputs/synthetic_responses/shared_volatility \\
+        --output-dir outputs/hgf_walk_outputs/local_A/synthetic_responses/shared_volatility \\
         --response-sd 0.10
 """
 
@@ -54,6 +54,11 @@ PROJECT_ROOT = next(p for p in Path(__file__).resolve().parents if (p / "src").i
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+from src.utils.paths import (
+    DEFAULT_MODEL_RUNS_DIR,
+    DEFAULT_SYNTHETIC_RESPONSES_DIR,
+)
+
 
 from src.response_models.continuous_prediction import (  # noqa: E402
     ContinuousPredictionResponseParameters,
@@ -72,20 +77,8 @@ MODEL_NAMES = [
 ]
 
 
-DEFAULT_MODEL_RUNS_DIR = (
-    PROJECT_ROOT
-    / "outputs"
-    / "hgf_walk_outputs"
-    / "model_runs"
-)
 
-
-DEFAULT_OUTPUT_BASE_DIR = (
-    PROJECT_ROOT
-    / "outputs"
-    / "hgf_walk_outputs"
-    / "synthetic_responses"
-)
+DEFAULT_OUTPUT_BASE_DIR = DEFAULT_SYNTHETIC_RESPONSES_DIR
 
 
 def load_labels(model_runs_dir: str | Path) -> pd.DataFrame:

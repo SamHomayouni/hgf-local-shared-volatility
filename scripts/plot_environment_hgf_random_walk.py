@@ -17,26 +17,37 @@ Expected input
 --------------
 By default, this script reads:
 
-    outputs/hgf_walk_outputs/environment_long.csv
+    outputs/hgf_walk_outputs/local_A/environment_long.csv
 
 Expected output
 ---------------
 By default, this script writes figures to:
 
-    outputs/hgf_walk_outputs/figures/environment/
+    outputs/hgf_walk_outputs/local_A/figures/environment/
 """
 
 from __future__ import annotations
 
 from pathlib import Path
 import argparse
+import sys
+
 
 import matplotlib.pyplot as plt
 import pandas as pd
 
+PROJECT_ROOT = next(p for p in Path(__file__).resolve().parents if (p / "src").is_dir() and (p / "config").is_dir())
 
-DEFAULT_ENVIRONMENT_PATH = Path("outputs/hgf_walk_outputs/environment_long.csv")
-DEFAULT_FIGURE_DIR = Path("outputs/hgf_walk_outputs/figures/environment")
+
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from src.utils.paths import (
+    DEFAULT_ENVIRONMENT_PATH,
+    DEFAULT_FIGURES_DIR,
+)
+
+DEFAULT_FIGURE_DIR = Path(DEFAULT_FIGURES_DIR / "environment")
 
 
 def load_environment(environment_path: str | Path) -> pd.DataFrame:

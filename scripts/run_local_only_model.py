@@ -2,16 +2,16 @@
 Run the local-only pyhgf model on the generated two-stream environment.
 
 Input:
-    outputs/data/environment_long.csv
+    outputs/hgf_walk_outputs/local_A/environment_long.csv
 
 Outputs:
-    outputs/model_runs/local_only/
+    outputs/hgf_walk_outputs/local_A/model_runs/local_only/
         node_trajectories.csv
         node_ids.json
         run_metadata.json
 
 Also saves shared model input files to:
-    outputs/model_runs/
+    outputs/hgf_walk_outputs/local_A/model_runs/
         model_input_data.npy
         model_input_data.csv
         model_labels.csv
@@ -38,6 +38,10 @@ PROJECT_ROOT = next(p for p in Path(__file__).resolve().parents if (p / "src").i
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+from src.utils.paths import (
+    DEFAULT_ENVIRONMENT_PATH,
+    DEFAULT_MODEL_RUNS_DIR,
+)
 
 from src.models.local_only import (  # noqa: E402
     MODEL_NAME,
@@ -261,14 +265,14 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--environment",
         type=str,
-        default=str(PROJECT_ROOT / "outputs" / "data" / "environment_long.csv"),
+        default=str(DEFAULT_ENVIRONMENT_PATH),
         help="Path to environment_long.csv.",
     )
 
     parser.add_argument(
         "--output-dir",
         type=str,
-        default=str(PROJECT_ROOT / "outputs" / "model_runs"),
+        default=str(DEFAULT_MODEL_RUNS_DIR),
         help="Directory where model outputs should be saved.",
     )
 

@@ -22,6 +22,11 @@ PROJECT_ROOT = next(p for p in Path(__file__).resolve().parents if (p / "src").i
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+from src.utils.paths import (
+    DEFAULT_ENVIRONMENT_PATH,
+    DEFAULT_MODEL_RUNS_DIR,
+)
+
 
 from src.models.global_only import (  # noqa: E402
     MODEL_NAME,
@@ -245,13 +250,13 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--environment",
         type=str,
-        default=str(PROJECT_ROOT / "outputs" / "data" / "environment_long.csv"),
+        default=str(DEFAULT_ENVIRONMENT_PATH),
     )
 
     parser.add_argument(
         "--output-dir",
         type=str,
-        default=str(PROJECT_ROOT / "outputs" / "model_runs"),
+        default=str(DEFAULT_MODEL_RUNS_DIR),
     )
 
     parser.add_argument("--input-precision", type=float, default=100.0)

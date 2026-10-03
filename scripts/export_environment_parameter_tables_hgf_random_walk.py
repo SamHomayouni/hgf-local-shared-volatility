@@ -11,7 +11,7 @@ random-walk environment and saves readable tables for:
     5. block schedule / volatility manipulation
 
 Expected input:
-    config/hgf_random_walk.yaml
+    config/hgf_random_walk_local_A.yaml
 
 Expected outputs:
     outputs/hgf_walk_outputs/tables/environment_parameters/
@@ -52,7 +52,11 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 
-DEFAULT_CONFIG_PATH = PROJECT_ROOT / "config" / "hgf_random_walk.yaml"
+DEFAULT_CONFIG_PATH = (
+    PROJECT_ROOT
+    / "config"
+    / "hgf_random_walk_local_A.yaml"
+)
 
 OUTPUT_DIR = (
     PROJECT_ROOT

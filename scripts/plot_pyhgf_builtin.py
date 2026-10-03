@@ -22,17 +22,18 @@ Expected input
 --------------
 By default, this script reads:
 
-    outputs/model_runs/model_input_data.npy
+    outputs/hgf_walk_outputs/local_A/model_runs/model_input_data.npy
 
-This file should have been created by:
-
-    scripts/run_pyhgf_models.py
+This file is created by the current model runner scripts:
+    scripts/run_local_only_model.py
+    scripts/run_global_only_model.py
+    scripts/run_shared_volatility_model.py
 
 Expected output
 ---------------
 By default, this script writes figures to:
 
-    outputs/figures/pyhgf_builtin/
+    outputs/hgf_walk_outputs/local_A/figures/pyhgf_builtin/
 
 For each model, it saves:
     - all_nodes.png
@@ -64,6 +65,11 @@ PROJECT_ROOT = next(p for p in Path(__file__).resolve().parents if (p / "src").i
 
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
+
+from src.utils.paths import (  # noqa: E402
+    DEFAULT_FIGURES_DIR,
+    DEFAULT_MODEL_RUNS_DIR,
+)
 
 
 from pyhgf.plots.matplotlib import plot_nodes, plot_trajectories  # noqa: E402
@@ -355,26 +361,14 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--input-data",
         type=str,
-        default=str(
-            PROJECT_ROOT
-            / "outputs"
-            / "hgf_walk_outputs"
-            / "model_runs"
-            / "model_input_data.npy"
-        ),
+        default=str(DEFAULT_MODEL_RUNS_DIR / "model_input_data.npy"),
         help="Path to model_input_data.npy.",
     )
 
     parser.add_argument(
         "--output-dir",
         type=str,
-        default=str(
-            PROJECT_ROOT
-            / "outputs"
-            / "hgf_walk_outputs"
-            / "figures"
-            / "pyhgf_builtin"
-        ),
+        default=str(DEFAULT_FIGURES_DIR / "pyhgf_builtin"),
         help="Directory where pyhgf built-in plots should be saved.",
     )
 
