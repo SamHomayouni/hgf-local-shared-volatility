@@ -1,0 +1,12 @@
+arviz==0.23.4
+h5netcdf==1.8.1
+jax==0.4.31
+jaxlib==0.4.31
+matplotlib==3.10.9
+networkx==3.6.1
+numpy==2.4.6
+pandas==3.0.3
+pyhgf==0.2.12
+pymc==5.28.5
+pytensor==2.38.3
+PyYAML==6.0.3

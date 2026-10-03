@@ -1,0 +1,90 @@
+# First simulation configuration for the global-vs-local volatility project.
+#
+# Purpose:
+#   Generate a simple two-stream continuous environment.
+#   Stream A becomes volatile during two predefined blocks.
+#   Stream B remains stable throughout.
+#
+# This is the first environment only. It is intentionally simple because
+# the first goal is to test whether model architectures produce different
+# learning-rate transfer fingerprints.
+
+simulation:
+  name: "first_two_stream_changepoint_simulation"
+  random_seed: 123
+  n_trials: 1000
+
+blocks:
+  # Trial numbers here are human-readable:
+  # trial 1 means the first trial, not Python index 0.
+  - name: "S1"
+    start_index: 0
+    stop_index: 200
+    stream_a_regime: "stable"
+    stream_b_regime: "stable"
+
+  - name: "V1"
+    start_index: 200
+    stop_index: 400
+    stream_a_regime: "volatile"
+    stream_b_regime: "stable"
+
+  - name: "S2"
+    start_index: 400
+    stop_index: 600
+    stream_a_regime: "stable"
+    stream_b_regime: "stable"
+
+  - name: "V2"
+    start_index: 600
+    stop_index: 800
+    stream_a_regime: "volatile"
+    stream_b_regime: "stable"
+
+  - name: "S3"
+    start_index: 800
+    stop_index: 1000
+    stream_a_regime: "stable"
+    stream_b_regime: "stable"
+
+environment:
+  stream_a:
+    initial_mean: 0.0
+
+    # Probability that the latent mean jumps on a given trial.
+    # In volatile blocks, stream A has more frequent change points.
+    changepoint_probability_stable: 0.005
+    changepoint_probability_volatile: 0.08
+
+    # Size of latent jumps when a change point occurs.
+    # In volatile blocks, jumps are larger.
+    changepoint_jump_sd_stable: 0.10
+    changepoint_jump_sd_volatile: 0.35
+
+    # Small trial-by-trial drift even when no change point occurs.
+    # This avoids a completely flat latent trajectory.
+    latent_drift_sd: 0.005
+
+    # Observation noise around the latent mean.
+    # keeping this fixed across stable and volatile blocks,
+    # because the first simulation should manipulate volatility, not noise.
+    observation_noise_sd: 0.10
+
+  stream_b:
+    initial_mean: 0.0
+
+    # Stream B is objectively stable throughout this first simulation.
+    # The volatile value is still included for symmetry, but it is not used
+    # because stream_b_regime is always "stable" in the block schedule.
+    changepoint_probability_stable: 0.002
+    changepoint_probability_volatile: 0.002
+
+    changepoint_jump_sd_stable: 0.10
+    changepoint_jump_sd_volatile: 0.10
+
+    latent_drift_sd: 0.005
+    observation_noise_sd: 0.10
+
+output:
+  save_environment_csv: true
+  save_metadata_json: true

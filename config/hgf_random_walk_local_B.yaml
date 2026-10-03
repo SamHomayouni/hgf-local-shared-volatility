@@ -1,0 +1,60 @@
+# Mirrored local-volatility condition.
+#
+# Stream A remains stable.
+# Stream B becomes volatile during V1 and V2.
+
+simulation:
+  name: "two_stream_hgf_random_walk_local_B"
+  random_seed: 123
+  n_trials: 1000
+
+blocks:
+
+  - name: "S1"
+    start_index: 0
+    stop_index: 200
+    stream_a_regime: "stable"
+    stream_b_regime: "stable"
+
+  - name: "V1"
+    start_index: 200
+    stop_index: 400
+    stream_a_regime: "stable"
+    stream_b_regime: "volatile"
+
+  - name: "S2"
+    start_index: 400
+    stop_index: 600
+    stream_a_regime: "stable"
+    stream_b_regime: "stable"
+
+  - name: "V2"
+    start_index: 600
+    stop_index: 800
+    stream_a_regime: "stable"
+    stream_b_regime: "volatile"
+
+  - name: "S3"
+    start_index: 800
+    stop_index: 1000
+    stream_a_regime: "stable"
+    stream_b_regime: "stable"
+
+environment:
+
+  latent_dynamics:
+    lambda_x: 1.0
+    rho_x: 0.0
+    q_low: 0.0004
+    q_high: 0.01
+    observation_noise_sd: 0.10
+
+  stream_a:
+    initial_mean: 0.0
+
+  stream_b:
+    initial_mean: 0.0
+
+output:
+  save_environment_csv: true
+  save_metadata_json: true

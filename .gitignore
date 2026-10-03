@@ -1,0 +1,29 @@
+# macOS
+.DS_Store
+
+# Python environments
+.myenv/
+.venv/
+venv/
+env/
+
+# Python caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ipynb_checkpoints/
+
+# Generated model / simulation outputs
+outputs/
+
+# Large Bayesian posterior files
+*.nc
+*.zarr/
+
+# Temporary repository inspection files
+repository_inventory.txt
+
+# Editor files
+.vscode/
+.idea/
