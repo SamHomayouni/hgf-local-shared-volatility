@@ -3,7 +3,7 @@ Repeated Bayesian model recovery across response-noise seeds.
 
 This script reuses the already validated fitting code in:
 
-    scripts/bayesian_model_recovery.py
+    experiments/model_recovery/bayesian_model_recovery.py
 
 For every supplied environment directory, generating model, and response
 seed it:
@@ -84,13 +84,14 @@ PAIR_DEFINITIONS = (
 
 
 def load_recovery_module():
-    """Load scripts/bayesian_model_recovery.py without requiring scripts
+    """Load experiments/model_recovery/bayesian_model_recovery.py without requiring scripts
     to be an importable Python package.
     """
 
     module_path = (
         PROJECT_ROOT
-        / "scripts"
+        / "experiments"
+        / "model_recovery"
         / "bayesian_model_recovery.py"
     )
 
@@ -98,7 +99,7 @@ def load_recovery_module():
         raise FileNotFoundError(
             "Could not find the existing recovery script: "
             f"{module_path}\n"
-            "Create scripts/bayesian_model_recovery.py first."
+            "Create experiments/model_recovery/bayesian_model_recovery.py first."
         )
 
     spec = importlib.util.spec_from_file_location(
