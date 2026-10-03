@@ -71,7 +71,7 @@ jax.config.update(
 # Project imports
 # =====================================================================
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = next(p for p in Path(__file__).resolve().parents if (p / "src").is_dir() and (p / "config").is_dir())
 
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(
