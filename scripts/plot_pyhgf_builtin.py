@@ -147,7 +147,7 @@ def load_input_data(input_path: str | Path) -> np.ndarray:
     if not input_path.exists():
         raise FileNotFoundError(
             f"Could not find input matrix: {input_path}\n"
-            "Run scripts/run_pyhgf_models.py first, or pass --input-data."
+            "Run scripts/run_models.py first, or pass --input-data."
         )
 
     input_data = np.load(input_path)
