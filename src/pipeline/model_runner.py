@@ -304,10 +304,8 @@ def run_model(
         "input_shape": list(input_data.shape),
         "model_kwargs": model_kwargs,
         "saved_files": {
-            "node_trajectories": str(
-                trajectories_path
-            ),
-            "node_ids": str(node_ids_path),
+            "node_trajectories": "node_trajectories.csv",
+            "node_ids": "node_ids.json",
         },
     }
 
