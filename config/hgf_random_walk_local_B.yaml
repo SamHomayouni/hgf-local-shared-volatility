@@ -55,6 +55,3 @@ environment:
   stream_b:
     initial_mean: 0.0
 
-output:
-  save_environment_csv: true
-  save_metadata_json: true

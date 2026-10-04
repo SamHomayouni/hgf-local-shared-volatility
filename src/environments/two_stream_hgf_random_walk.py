@@ -1,43 +1,56 @@
 """
-Two-stream HGF-style random-walk environment.
+Two-stream HGF-style Gaussian random-walk environments.
 
-This module generates a second synthetic environment for the project.
+This module generates the current synthetic environments used to study
+local versus shared volatility estimation.
 
-The environment is designed to test whether an inference model with a
-global/shared volatility estimate shows cross-stream transfer of learning rate.
+Three environment configurations are currently supported:
 
-The manipulation is:
-    - Stream A has higher latent process variance in two volatile blocks.
-    - Stream B remains objectively stable throughout.
-    - Observation noise is fixed across streams and blocks.
+    local_A
+        Stream A becomes volatile during V1 and V2 while Stream B
+        remains objectively stable.
 
-This differs from src/environments/two_stream_changepoint.py:
-    - There are no changepoints.
-    - The latent value evolves as a Gaussian random walk.
-    - Volatility is implemented as blockwise process variance Q.
+    local_B
+        Stream B becomes volatile during V1 and V2 while Stream A
+        remains objectively stable.
 
-Core equations
---------------
+    global
+        Both streams become volatile during V1 and V2. They share the
+        same process-variance schedule but have independent Gaussian
+        innovations.
+
 For stream s in {A, B}:
 
-    x_s(k) = lambda_x * x_s(k-1) + rho_x + sqrt(Q_s(k)) * epsilon_s(k)
+    x_s(k) =
+        lambda_x * x_s(k-1)
+        + rho_x
+        + sqrt(Q_s(k)) * epsilon_s(k)
 
-    u_s(k) = x_s(k) + observation_noise_sd * eta_s(k)
+    u_s(k) =
+        x_s(k)
+        + observation_noise_sd * eta_s(k)
 
 where:
 
     epsilon_s(k), eta_s(k) ~ Normal(0, 1)
 
-For the current design:
+The current environments use:
 
-    Q_A(k) = q_low   during stable blocks
-    Q_A(k) = q_high  during A-volatile blocks
-    Q_B(k) = q_low   throughout
+    lambda_x = 1.0
+    rho_x = 0.0
 
-This module only generates the environment.
-It does not fit any model.
-It does not compute learning rates.
-It does not compute the cross-transfer index.
+so the latent states follow Gaussian random walks rather than
+mean-reverting processes.
+
+Volatility is manipulated through the block-wise process variance Q.
+Observation noise remains fixed across streams and blocks.
+
+This module only generates environments. It does not fit HGF models,
+simulate participant responses, calculate learning rates, or compute
+cross-stream transfer indices.
+
+The earlier changepoint environment is retained separately under the
+archive directory for provenance.
 """
 
 from __future__ import annotations

@@ -8,7 +8,7 @@
 #
 # This is different from the first changepoint environment:
 #   - No changepoints are generated.
-#   - The latent value evolves as an autoregressive Gaussian process.
+#   - The latent value evolves as a Gaussian random walk.
 #   - Volatility is implemented as a blockwise change in process variance Q.
 #
 # Core equations:
@@ -95,6 +95,3 @@ environment:
   stream_b:
     initial_mean: 0.0
 
-output:
-  save_environment_csv: true
-  save_metadata_json: true
