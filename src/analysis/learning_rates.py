@@ -104,7 +104,8 @@ def load_model_trajectories(
         "x_1_expected_precision",
         "x_2_expected_precision",
         "x_3_expected_precision",
-    }
+        "x_2_precision",
+        "x_3_precision"}
 
     missing_columns = required_columns - set(trajectories.columns)
 
@@ -267,12 +268,12 @@ def calculate_trialwise_learning_rates(
     Stream A:
         input_A expected precision
         /
-        value_A expected precision
+        value_A posterior precision
 
     Stream B:
         input_B expected precision
         /
-        value_B expected precision
+        value_B posterior precision
     """
 
     if len(labels) != len(trajectories):
@@ -295,7 +296,7 @@ def calculate_trialwise_learning_rates(
             ].to_numpy(dtype=float)
             /
             trajectories[
-                "x_2_expected_precision"
+                "x_2_precision"
             ].to_numpy(dtype=float)
         )
 
@@ -305,7 +306,7 @@ def calculate_trialwise_learning_rates(
             ].to_numpy(dtype=float)
             /
             trajectories[
-                "x_3_expected_precision"
+                "x_3_precision"
             ].to_numpy(dtype=float)
         )
 

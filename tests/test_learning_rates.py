@@ -133,6 +133,8 @@ def test_trialwise_learning_rate_is_precision_ratio() -> None:
             "x_1_expected_precision": [8.0, 12.0],
             "x_2_expected_precision": [5.0, 4.0],
             "x_3_expected_precision": [2.0, 3.0],
+            "x_2_precision": [15.0, 24.0],
+            "x_3_precision": [10.0, 15.0],
         }
     )
 
@@ -144,12 +146,12 @@ def test_trialwise_learning_rate_is_precision_ratio() -> None:
 
     np.testing.assert_allclose(
         result["stream_A_learning_rate"],
-        [2.0, 5.0],
+        [10.0 / 15.0, 20.0 / 24.0],
     )
 
     np.testing.assert_allclose(
         result["stream_B_learning_rate"],
-        [4.0, 4.0],
+        [8.0 / 10.0, 12.0 / 15.0],
     )
 
 
