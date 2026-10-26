@@ -40,6 +40,7 @@ from __future__ import annotations
 from pathlib import Path
 import argparse
 import sys
+import json
 
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -47,23 +48,33 @@ import pandas as pd
 
 PROJECT_ROOT = next(p for p in Path(__file__).resolve().parents if (p / "src").is_dir() and (p / "config").is_dir())
 
-DEFAULT_RESPONSE_FILE = (
-    PROJECT_ROOT
-    / "outputs"
-    / "hgf_walk_outputs"
-    / "synthetic_responses"
-    / "shared_volatility_sigma010"
-    / "synthetic_continuous_predictions.csv"
-)
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+from src.utils.paths import get_environment_output_dir
 
-DEFAULT_OUTPUT_DIR = (
-    PROJECT_ROOT
-    / "outputs"
-    / "hgf_walk_outputs"
-    / "figures"
-    / "synthetic_responses"
-)
+ENVIRONMENTS = {"local_A": "Local-A", "global": "Global", "hybrid": "Hybrid"}
+MODELS = {"local_only": "Local-only", "global_only": "Global-only",
+          "shared_volatility": "Shared-volatility"}
+SHADING_LABELS = {
+    "local_A": "Stream A volatile; B stable",
+    "global": "Both streams volatile",
+    "hybrid": "Nominal V block; shared-drive manipulation",
+}
 
+def v_spans(data):
+    result = []
+    for _, part in data[data["block"].astype(str).str.startswith("V")].groupby("block", sort=False):
+        result.append((float(part["trial_index"].min()) - .5,
+                       float(part["trial_index"].max()) + .5))
+    return result
+
+def shade_v_blocks(ax, data, environment):
+    for i, (start, stop) in enumerate(v_spans(data)):
+        ax.axvspan(start, stop, alpha=.12,
+                   label=SHADING_LABELS[environment] if i == 0 else None)
+
+def title(subject, environment, model):
+    return f"{subject}\n{ENVIRONMENTS[environment]} environment | {MODELS[model]} model"
 
 def load_response_data(response_file: str | Path) -> pd.DataFrame:
     """
@@ -79,6 +90,7 @@ def load_response_data(response_file: str | Path) -> pd.DataFrame:
 
     required_columns = {
         "trial_index",
+        "block",
         "observation_A",
         "observation_B",
         "model_prediction_A",
@@ -125,74 +137,12 @@ def filter_trials(
     return filtered.reset_index(drop=True)
 
 
-def get_a_volatile_spans(data: pd.DataFrame) -> list[tuple[float, float]]:
-    """
-    Find contiguous A-volatile regions for background shading.
-
-    Preferred source:
-        regime_A == "volatile"
-
-    Fallback:
-        block labels that start with "V"
-    """
-
-    if "regime_A" in data.columns:
-        volatile_mask = data["regime_A"].astype(str).str.lower().eq("volatile")
-    elif "block" in data.columns:
-        volatile_mask = data["block"].astype(str).str.upper().str.startswith("V")
-    else:
-        return []
-
-    if not volatile_mask.any():
-        return []
-
-    trial_index = data["trial_index"].to_numpy()
-    mask = volatile_mask.to_numpy()
-
-    spans: list[tuple[float, float]] = []
-
-    in_span = False
-    span_start = None
-
-    for i, is_volatile in enumerate(mask):
-        if is_volatile and not in_span:
-            in_span = True
-            span_start = trial_index[i]
-
-        if in_span and (not is_volatile):
-            span_end = trial_index[i - 1]
-            spans.append((float(span_start), float(span_end)))
-            in_span = False
-            span_start = None
-
-    if in_span:
-        spans.append((float(span_start), float(trial_index[-1])))
-
-    return spans
-
-
-def shade_volatile_blocks(ax, spans: list[tuple[float, float]]) -> None:
-    """
-    Add background shading for A-volatile blocks.
-    """
-
-    first = True
-
-    for start, end in spans:
-        label = "A volatile block" if first else None
-        ax.axvspan(
-            start,
-            end,
-            alpha=0.12,
-            label=label,
-        )
-        first = False
-
-
 def plot_stream(
     *,
     data: pd.DataFrame,
     stream: str,
+    environment: str,
+    model: str,
     output_dir: str | Path,
     file_prefix: str,
     dpi: int,
@@ -213,11 +163,10 @@ def plot_stream(
 
     x = data["trial_index"]
 
-    volatile_spans = get_a_volatile_spans(data)
 
     fig, ax = plt.subplots(figsize=(16, 6))
 
-    shade_volatile_blocks(ax, volatile_spans)
+    shade_v_blocks(ax, data, environment)
 
     ax.plot(
         x,
@@ -243,7 +192,7 @@ def plot_stream(
     )
 
     ax.set_title(
-        f"Hybrid synthetic continuous predictions: stream {stream}",
+        title(f"Synthetic continuous predictions: Stream {stream}", environment, model),
         fontsize=15,
         fontweight="bold",
     )
@@ -259,10 +208,9 @@ def plot_stream(
 
     fig.tight_layout()
     fig.savefig(output_path, dpi=dpi)
-    plt.close(fig)
-
     if show:
         plt.show()
+    plt.close(fig)
 
     return output_path
 
@@ -270,6 +218,8 @@ def plot_stream(
 def plot_prediction_errors(
     *,
     data: pd.DataFrame,
+    environment: str,
+    model: str,
     output_dir: str | Path,
     file_prefix: str,
     dpi: int,
@@ -286,14 +236,13 @@ def plot_prediction_errors(
     """
 
     x = data["trial_index"]
-    volatile_spans = get_a_volatile_spans(data)
 
     residual_A = data["participant_prediction_A"] - data["model_prediction_A"]
     residual_B = data["participant_prediction_B"] - data["model_prediction_B"]
 
     fig, ax = plt.subplots(figsize=(16, 5))
 
-    shade_volatile_blocks(ax, volatile_spans)
+    shade_v_blocks(ax, data, environment)
 
     ax.axhline(0.0, linewidth=1.0, alpha=0.8)
 
@@ -314,7 +263,7 @@ def plot_prediction_errors(
     )
 
     ax.set_title(
-        "Hybrid synthetic response noise around model predictions",
+        title("Synthetic response noise around model predictions", environment, model),
         fontsize=15,
         fontweight="bold",
     )
@@ -330,10 +279,9 @@ def plot_prediction_errors(
 
     fig.tight_layout()
     fig.savefig(output_path, dpi=dpi)
-    plt.close(fig)
-
     if show:
         plt.show()
+    plt.close(fig)
 
     return output_path
 
@@ -344,20 +292,22 @@ def build_arg_parser() -> argparse.ArgumentParser:
     """
 
     parser = argparse.ArgumentParser(
-        description="Plot hybrid synthetic continuous prediction responses."
+        description="Plot synthetic responses across environments and models."
     )
 
+    parser.add_argument("--environment-name", choices=list(ENVIRONMENTS), default="local_A")
+    parser.add_argument("--model-name", choices=list(MODELS), default="shared_volatility")
     parser.add_argument(
         "--response-file",
         type=str,
-        default=str(DEFAULT_RESPONSE_FILE),
+        default=None,
         help="Path to synthetic_continuous_predictions.csv.",
     )
 
     parser.add_argument(
         "--output-dir",
         type=str,
-        default=str(DEFAULT_OUTPUT_DIR),
+        default=None,
         help="Directory where figures should be saved.",
     )
 
@@ -378,7 +328,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--file-prefix",
         type=str,
-        default="hybrid_synthetic_predictions",
+        default=None,
         help="Prefix for output figure filenames.",
     )
 
@@ -412,7 +362,18 @@ def main() -> None:
     parser = build_arg_parser()
     args = parser.parse_args()
 
-    response_data = load_response_data(args.response_file)
+    env_dir = get_environment_output_dir(args.environment_name)
+    response_file = (Path(args.response_file) if args.response_file else
+                     env_dir / "synthetic_responses" / args.model_name / "synthetic_continuous_predictions.csv")
+    output_dir = (Path(args.output_dir) if args.output_dir else
+                  env_dir / "figures" / "synthetic_responses" / args.model_name)
+    file_prefix = args.file_prefix or f"{args.environment_name}_{args.model_name}_synthetic_predictions"
+    metadata_file = response_file.with_name("response_model_metadata.json")
+    if metadata_file.is_file():
+        meta = json.loads(metadata_file.read_text(encoding="utf-8"))
+        if meta.get("generating_perceptual_model", args.model_name) != args.model_name:
+            raise ValueError("Response model metadata conflicts with --model-name")
+    response_data = load_response_data(response_file)
 
     response_data = filter_trials(
         response_data,
@@ -420,16 +381,16 @@ def main() -> None:
         end_trial_index=args.end_trial_index,
     )
 
-    output_dir = Path(args.output_dir)
-
     saved_paths = []
 
     for stream in ["A", "B"]:
         saved_path = plot_stream(
             data=response_data,
             stream=stream,
+            environment=args.environment_name,
+            model=args.model_name,
             output_dir=output_dir,
-            file_prefix=args.file_prefix,
+            file_prefix=file_prefix,
             dpi=args.dpi,
             show=args.show,
         )
@@ -438,13 +399,16 @@ def main() -> None:
     if not args.skip_response_noise_plot:
         saved_path = plot_prediction_errors(
             data=response_data,
+            environment=args.environment_name,
+            model=args.model_name,
             output_dir=output_dir,
-            file_prefix=args.file_prefix,
+            file_prefix=file_prefix,
             dpi=args.dpi,
             show=args.show,
         )
         saved_paths.append(saved_path)
 
+    print(f"Environment: {args.environment_name}; model: {args.model_name}")
     print("Saved figures:")
     for path in saved_paths:
         print(f"  {path}")
