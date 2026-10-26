@@ -22,6 +22,7 @@ from src.analysis.learning_rates import (
 def get_block_volatility_label(
     labels: pd.DataFrame,
     block: str,
+    environment_type: str = "global",
 ) -> str | None:
     """
     Return a human-readable volatility label for one block.
@@ -39,6 +40,9 @@ def get_block_volatility_label(
 
     if block_rows.empty:
         return None
+
+    if environment_type == "hybrid":
+        return "Nominal V block" if block in {"V1", "V2"} else None
 
     a_volatile = (
         block_rows["regime_A"]
@@ -65,11 +69,12 @@ def get_block_volatility_label(
 def add_volatile_block_shading(
     ax: plt.Axes,
     labels: pd.DataFrame,
+    environment_type: str = "global",
 ) -> None:
     """
-    Shade all objectively volatile blocks.
+    Shade volatile blocks, or nominal V blocks in Hybrid.
 
-    Labels automatically reflect whether:
+    Labels reflect whether:
         A is volatile,
         B is volatile,
         or both are volatile.
@@ -81,6 +86,7 @@ def add_volatile_block_shading(
         volatility_label = get_block_volatility_label(
             labels,
             block,
+            environment_type=environment_type,
         )
 
         if volatility_label is None:
@@ -212,6 +218,14 @@ def add_effect_text_box(
             "CTI: not applicable"
         )
 
+    elif environment_type == "hybrid":
+        text = (
+            "Nominal-block comparison (descriptive)\n"
+            f"A V-versus-S contrast: {a_effect:.4f}\n"
+            f"B V-versus-S contrast: {b_effect:.4f}\n"
+            "CTI: not defined (both streams driven)"
+        )
+
     else:
         raise ValueError(
             f"Unknown environment type: "
@@ -290,6 +304,7 @@ def plot_learning_rates_for_model(
     add_volatile_block_shading(
         ax,
         model_df,
+        environment_type=environment_type,
     )
 
     add_block_boundaries(
@@ -425,6 +440,7 @@ def plot_block_means_for_model(
             get_block_volatility_label(
                 labels,
                 block,
+                environment_type=environment_type,
             )
         )
 
@@ -582,20 +598,33 @@ def plot_effect_summary(
             "A cross-stream change"
         )
 
+    elif environment_type == "hybrid":
+        title_detail = (
+            "nominal V versus adjacent S blocks (descriptive)"
+        )
+
     else:
         title_detail = (
             "Both streams objectively volatile"
         )
 
+    title_prefix = (
+        "Descriptive learning-rate block contrasts"
+        if environment_type == "hybrid"
+        else "Learning-rate volatility effects"
+    )
+
     ax.set_title(
-        "Learning-rate volatility effects\n"
+        f"{title_prefix}\n"
         f"{environment_name}: {title_detail}",
         fontsize=15,
         fontweight="bold",
     )
 
     ax.set_ylabel(
-        "Average learning-rate change"
+        "Nominal-block learning-rate contrast"
+        if environment_type == "hybrid"
+        else "Average learning-rate change"
     )
 
     ax.legend(
