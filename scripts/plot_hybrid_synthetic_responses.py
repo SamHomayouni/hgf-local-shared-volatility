@@ -74,7 +74,7 @@ def shade_v_blocks(ax, data, environment):
                    label=SHADING_LABELS[environment] if i == 0 else None)
 
 def title(subject, environment, model):
-    return f"{subject}\\n{ENVIRONMENTS[environment]} environment | {MODELS[model]} model"
+    return f"{subject}\n{ENVIRONMENTS[environment]} environment | {MODELS[model]} model"
 
 def load_response_data(response_file: str | Path) -> pd.DataFrame:
     """
