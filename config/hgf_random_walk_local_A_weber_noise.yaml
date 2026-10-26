@@ -1,0 +1,111 @@
+# PARAMETER VARIANT: retained process variances, Weber observation noise.
+# q_low=0.0004 and q_high=0.01 are retained project/test values by user decision.
+# Do not replace them with variances derived from Weber volatility-state levels.
+# Weber updated manuscript, Table 1, Example 1 PROCESS: epsilon_u=1.
+# Agreed Appendix Eq. 65 convention: variance=exp(epsilon_u), SD=exp(epsilon_u/2).
+# observation_noise_sd=exp(0.5); corresponding input precision=exp(-1).
+# lambda_x=1, rho_x=0 and initial latent values=0 already match that example.
+# Seed, trial count, block schedule and simulation name are unchanged.
+# This is NOT a complete Weber generative-process replication.
+# New variant filename/output folder preserve the original configurations/results.
+#
+
+# HGF-style random-walk environment configuration for the
+# global-vs-local volatility project.
+#
+# Purpose:
+#   Generate one two-stream continuous environment.
+#   Stream A has higher latent process variance during two predefined blocks.
+#   Stream B remains objectively stable throughout.
+#
+# This is different from the first changepoint environment:
+#   - No changepoints are generated.
+#   - The latent value evolves as a Gaussian random walk.
+#   - Volatility is implemented as a blockwise change in process variance Q.
+#
+# Core equations:
+#
+#   Q_A(k) = Q_low   in stable blocks
+#   Q_A(k) = Q_high  in A-volatile blocks
+#   Q_B(k) = Q_low   in all blocks
+#
+#   x_s(k) = lambda_x * x_s(k-1) + rho_x + sqrt(Q_s(k)) * epsilon_s(k)
+#   u_s(k) = x_s(k) + observation_noise_sd * eta_s(k)
+#
+#   epsilon_s(k), eta_s(k) ~ Normal(0, 1)
+#
+# Notes:
+#   - lambda_x < 1 makes the latent value mean-reverting.
+#   - rho_x is set to 0 for now.
+#   - observation_noise_sd is fixed across streams and blocks, because the manipulation is process volatility, not observation noise.
+
+simulation:
+  name: "two_stream_hgf_random_walk_local_A"
+  random_seed: 123
+  n_trials: 1000
+
+blocks:
+  # Trial numbers here are human-readable:
+  # trial 1 means the first trial, not Python index 0.
+  #
+  # Indices are zero-based and half-open:
+  # start_index is included, stop_index is excluded.
+
+  - name: "S1"
+    start_index: 0
+    stop_index: 200
+    stream_a_regime: "stable"
+    stream_b_regime: "stable"
+
+  - name: "V1"
+    start_index: 200
+    stop_index: 400
+    stream_a_regime: "volatile"
+    stream_b_regime: "stable"
+
+  - name: "S2"
+    start_index: 400
+    stop_index: 600
+    stream_a_regime: "stable"
+    stream_b_regime: "stable"
+
+  - name: "V2"
+    start_index: 600
+    stop_index: 800
+    stream_a_regime: "volatile"
+    stream_b_regime: "stable"
+
+  - name: "S3"
+    start_index: 800
+    stop_index: 1000
+    stream_a_regime: "stable"
+    stream_b_regime: "stable"
+
+environment:
+  latent_dynamics:
+    # Same lambda for both streams.
+    lambda_x: 1.0
+
+    # Constant drift term. Keep at 0 for the first HGF-style environment.
+    rho_x: 0.0
+
+    # Stable latent process variance.
+    # Stable latent innovation SD = sqrt(0.0004) = 0.02.
+    q_low: 0.0004
+
+    # Volatile latent process variance.
+    # Volatile latent innovation SD = sqrt(0.01) = 0.10.
+    q_high: 0.01
+
+    # Fixed Gaussian observation noise; Weber Appendix Eq. 65 convention.
+    # epsilon_u=1 is LOG VARIANCE, not the SD or variance passed to the generator.
+    # observation variance=exp(1); observation SD=exp(0.5).
+    # Matching input precision=exp(-1)=0.36787944117144233.
+    observation_noise_sd: 0.10
+
+  stream_a:
+    initial_mean: 0.0
+
+  stream_b:
+    initial_mean: 0.0
+

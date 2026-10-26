@@ -1,0 +1,73 @@
+# PARAMETER VARIANT: retained process variances, Weber observation noise.
+# q_low=0.0004 and q_high=0.01 are retained project/test values by user decision.
+# Do not replace them with variances derived from Weber volatility-state levels.
+# Weber updated manuscript, Table 1, Example 1 PROCESS: epsilon_u=1.
+# Agreed Appendix Eq. 65 convention: variance=exp(epsilon_u), SD=exp(epsilon_u/2).
+# observation_noise_sd=exp(0.5); corresponding input precision=exp(-1).
+# lambda_x=1, rho_x=0 and initial latent values=0 already match that example.
+# Seed, trial count, block schedule and simulation name are unchanged.
+# This is NOT a complete Weber generative-process replication.
+# New variant filename/output folder preserve the original configurations/results.
+#
+
+# Mirrored local-volatility condition.
+#
+# Stream A remains stable.
+# Stream B becomes volatile during V1 and V2.
+
+simulation:
+  name: "two_stream_hgf_random_walk_local_B"
+  random_seed: 123
+  n_trials: 1000
+
+blocks:
+
+  - name: "S1"
+    start_index: 0
+    stop_index: 200
+    stream_a_regime: "stable"
+    stream_b_regime: "stable"
+
+  - name: "V1"
+    start_index: 200
+    stop_index: 400
+    stream_a_regime: "stable"
+    stream_b_regime: "volatile"
+
+  - name: "S2"
+    start_index: 400
+    stop_index: 600
+    stream_a_regime: "stable"
+    stream_b_regime: "stable"
+
+  - name: "V2"
+    start_index: 600
+    stop_index: 800
+    stream_a_regime: "stable"
+    stream_b_regime: "volatile"
+
+  - name: "S3"
+    start_index: 800
+    stop_index: 1000
+    stream_a_regime: "stable"
+    stream_b_regime: "stable"
+
+environment:
+
+  latent_dynamics:
+    lambda_x: 1.0
+    rho_x: 0.0
+    q_low: 0.0004
+    q_high: 0.01
+    # Fixed Gaussian observation noise; Weber Appendix Eq. 65 convention.
+    # epsilon_u=1 is LOG VARIANCE, not the SD or variance passed to the generator.
+    # observation variance=exp(1); observation SD=exp(0.5).
+    # Matching input precision=exp(-1)=0.36787944117144233.
+    observation_noise_sd: 0.10
+
+  stream_a:
+    initial_mean: 0.0
+
+  stream_b:
+    initial_mean: 0.0
+

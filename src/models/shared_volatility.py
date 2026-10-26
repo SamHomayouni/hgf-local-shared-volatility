@@ -56,19 +56,19 @@ def get_node_ids() -> dict[str, int]:
 def build_shared_vol_model(*, input_precision: float = 100.0,   #fixed
                            value_mean: float = 0.0, #fixed
                            value_precision: float = 1.0,    #fixed
-                           value_tonic_volatility: float = -7.824, #exp => 0.0004 and fixed
-                           value_autoconnection_strength: float = 0.95, #fixed
+                           value_tonic_volatility: float = -2.0, 
+                           value_autoconnection_strength: float = 1, #0.95
                            local_vol_mean: float = 0.0,
                            local_vol_precision: float = 1.0,
-                           local_vol_tonic_volatility: float = -6.0, #exp(-6) ~ 0.0025
+                           local_vol_tonic_volatility: float = -3, #-6.0
                            shared_value_mean: float = 0.0,
                            shared_value_precision:float = 1.0,
-                           shared_value_tonic_volatility: float = -4.0, #changed from -6.0
+                           shared_value_tonic_volatility: float = 0.0, #-4.0
                            value_coupling: float = 1.0,
-                           local_volatility_coupling: float = 0.7,  #alpha changed from 1.0
-                           shared_value_coupling: float = 0.75, #changed from 1.0
+                           local_volatility_coupling: float = 0.7,
+                           shared_value_coupling: float = 0.75,
                            update_type: str = "eHGF",
-                           local_vol_autoconnection_strength: float = 0.7,  #lambda
+                           local_vol_autoconnection_strength: float = 0.7, #1
                            max_posterior_precision: float = 1e10) -> Network:
     """
     Build the shared-volatility / hybrid model.

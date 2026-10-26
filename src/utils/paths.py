@@ -8,6 +8,7 @@ Generated outputs are organized by environment condition:
     outputs/hgf_walk_outputs/local_A/
     outputs/hgf_walk_outputs/local_B/
     outputs/hgf_walk_outputs/global/
+    outputs/hgf_walk_outputs/hybrid/
 """
 
 from __future__ import annotations
@@ -30,6 +31,7 @@ ENVIRONMENT_NAMES = (
     "local_A",
     "local_B",
     "global",
+    "hybrid",
 )
 
 DEFAULT_ENVIRONMENT_NAME = "local_A"

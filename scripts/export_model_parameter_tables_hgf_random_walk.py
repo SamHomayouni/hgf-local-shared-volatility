@@ -1,311 +1,211 @@
-"""
-Export parameter tables for the pyhgf model constructors used with the
-HGF-style random-walk environment.
+"""Export presentable tables of current fixed inference-model constructor parameters.
 
-This script reads the default arguments from the three model files:
-
-    src/models/local_only.py
-    src/models/global_only.py
-    src/models/shared_volatility.py
-
-and creates parameter tables for:
-
-    local_only
-    global_only
-    shared_volatility
-
-Outputs are saved to:
-
-    outputs/hgf_walk_outputs/tables/model_parameters/
-
-Each model gets:
-    - parameters.csv
-    - parameters.md
-    - parameters.png
-
-Run from project root:
-
+Run from the repository root:
     python scripts/export_model_parameter_tables_hgf_random_walk.py
-"""
 
+Reads Python function defaults without importing or running pyHGF. This reports
+current BUILDER DEFAULTS (not parameters estimated by fitting).
+Outputs detail tables and a side-by-side model comparison as CSV, PNG, Markdown.
+"""
 from __future__ import annotations
 
+import argparse
+import ast
+import json
+import textwrap
 from pathlib import Path
-import inspect
-import sys
 
+import matplotlib
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from matplotlib.table import Table
 import pandas as pd
 
-
-# ---------------------------------------------------------------------
-# Project imports
-# ---------------------------------------------------------------------
-
-PROJECT_ROOT = next(p for p in Path(__file__).resolve().parents if (p / "src").is_dir() and (p / "config").is_dir())
-
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
-
-
-from src.models.local_only import (  # noqa: E402
-    MODEL_NAME as LOCAL_ONLY_NAME,
-    build_local_only_model,
+PROJECT_ROOT = next(
+    (p for p in Path(__file__).resolve().parents if (p / "src").is_dir() and (p / "config").is_dir()),
+    None,
 )
+if PROJECT_ROOT is None:
+    raise RuntimeError("Place this file in your repository's scripts/ directory.")
 
-from src.models.global_only import (  # noqa: E402
-    MODEL_NAME as GLOBAL_ONLY_NAME,
-    build_global_only_model,
-)
-
-from src.models.shared_volatility import (  # noqa: E402
-    MODEL_NAME as SHARED_VOLATILITY_NAME,
-    build_shared_vol_model,
-)
-
-
-OUTPUT_DIR = (
-    PROJECT_ROOT
-    / "outputs"
-    / "hgf_walk_outputs"
-    / "tables"
-    / "model_parameters"
-)
-
-
-PARAMETER_DESCRIPTIONS = {
-    # Shared parameters
-    "input_precision": (
-        "Observation precision of continuous input nodes. For the current "
-        "HGF-random-walk environment, observation_noise_sd = 0.10, so "
-        "input_precision = 1 / 0.10**2 = 100."
-    ),
-    "value_mean": "Initial mean of value/state nodes.",
-    "value_precision": "Initial precision of value/state nodes.",
-    "value_tonic_volatility": (
-        "Baseline log-volatility of value/state nodes. For the current "
-        "environment, q_low = 0.0004, so log(q_low) is approximately -7.824."
-    ),
-    "value_autoconnection_strength": (
-        "Autoconnection strength lambda for value/state nodes. In the current "
-        "environment, lambda_x = 0.95 for both streams."
-    ),
-    "value_coupling": "Value coupling from value nodes to input nodes.",
-    "update_type": "pyhgf volatility update type.",
-    "max_posterior_precision": "Numerical upper bound on posterior precision.",
-
-    # Local-only parameters
-    "volatility_mean": "Initial mean of local volatility parents.",
-    "volatility_precision": "Initial precision of local volatility parents.",
-    "volatility_tonic_volatility": (
-        "Baseline log-volatility of local volatility parents. This controls "
-        "how much the volatility-parent state itself can change over time; it "
-        "is not the same as q_low of the value process."
-    ),
-    "volatility_coupling": (
-        "Volatility coupling from local volatility parents to value nodes."
-    ),
-
-    # Global-only parameters
-    "shared_volatility_mean": "Initial mean of the shared volatility parent.",
-    "shared_volatility_precision": (
-        "Initial precision of the shared volatility parent."
-    ),
-    "shared_volatility_tonic_volatility": (
-        "Baseline log-volatility of the shared volatility parent. This controls "
-        "how much the shared volatility state itself can change over time; it "
-        "is not the same as q_low of the value process."
-    ),
-    "shared_volatility_coupling": (
-        "Volatility coupling from shared volatility parent to value nodes."
-    ),
-
-    # Shared-volatility / hybrid parameters
-    "local_vol_mean": "Initial mean of local volatility parents.",
-    "local_vol_precision": "Initial precision of local volatility parents.",
-    "local_vol_tonic_volatility": (
-        "Baseline log-volatility of local volatility parents in the hybrid "
-        "model. This controls volatility-node dynamics, not the value-level "
-        "baseline process variance."
-    ),
-    "shared_value_mean": "Initial mean of the shared higher-level value parent.",
-    "shared_value_precision": (
-        "Initial precision of the shared higher-level value parent."
-    ),
-    "shared_value_tonic_volatility": (
-        "Baseline log-volatility of the shared higher-level value parent."
-    ),
-    "local_volatility_coupling": (
-        "Volatility coupling from local volatility parents to value nodes."
-    ),
-    "shared_value_coupling": (
-        "Value coupling from shared parent to local volatility nodes."
-    ),
-    "local_vol_autoconnection_strength": (
-        "Autoconnection strength lambda for local volatility nodes in the "
-        "hybrid model."
-    ),
-
-    # Generic fallback names
-    "autoconnection_strength": "Autoconnection strength lambda.",
+MODEL_SOURCES = {
+    "local_only": ("local_only.py", "build_local_only_model"),
+    "global_only": ("global_only.py", "build_global_only_model"),
+    "shared_volatility": ("shared_volatility.py", "build_shared_vol_model"),
+}
+DEFAULT_OUTPUT = PROJECT_ROOT / "outputs" / "hgf_walk_outputs" / "tables" / "model_parameters"
+DESCRIPTIONS = {
+    "input_precision": "Precision of observed inputs, e.g. 100 for observation SD 0.10.",
+    "value_mean": "Initial mean of each inferred value state.",
+    "value_precision": "Initial precision of each inferred value state.",
+    "value_tonic_volatility": "Tonic log process variance of inferred value states; depends on volatility-parent beliefs.",
+    "value_autoconnection_strength": "Value-state autoconnection; 1 means no mean reversion.",
+    "value_coupling": "Coupling from the value state to its corresponding input node.",
+    "volatility_mean": "Initial mean of each local volatility parent (Local-only).",
+    "volatility_precision": "Initial precision of each local volatility parent (Local-only).",
+    "volatility_tonic_volatility": "Tonic log innovation variance of local volatility states (Local-only).",
+    "volatility_coupling": "Volatility coupling from a local parent to its value state.",
+    "shared_volatility_mean": "Initial mean of shared volatility parent (Global-only).",
+    "shared_volatility_precision": "Initial precision of shared volatility parent (Global-only).",
+    "shared_volatility_tonic_volatility": "Tonic log innovation variance of shared volatility parent (Global-only).",
+    "shared_volatility_coupling": "Shared volatility parent coupling to both value states (Global-only).",
+    "local_vol_mean": "Initial mean of each local volatility node (Hybrid).",
+    "local_vol_precision": "Initial precision of each local volatility node (Hybrid).",
+    "local_vol_tonic_volatility": "Tonic log innovation variance of local volatility nodes (Hybrid).",
+    "local_volatility_coupling": "Local-volatility-to-value volatility coupling (Hybrid).",
+    "local_vol_autoconnection_strength": "Autoconnection of Hybrid local volatility nodes; values below 1 give mean reversion.",
+    "shared_value_mean": "Initial mean of higher shared value parent (Hybrid).",
+    "shared_value_precision": "Initial precision of higher shared value parent (Hybrid).",
+    "shared_value_tonic_volatility": "Tonic log innovation variance of higher shared value parent (Hybrid).",
+    "shared_value_coupling": "Shared value parent mean coupling to both local volatility nodes (Hybrid).",
+    "update_type": "pyHGF update approximation (e.g. eHGF).",
+    "max_posterior_precision": "Upper numerical cap on posterior precision.",
 }
 
 
-MODEL_BUILDERS = {
-    LOCAL_ONLY_NAME: build_local_only_model,
-    GLOBAL_ONLY_NAME: build_global_only_model,
-    SHARED_VOLATILITY_NAME: build_shared_vol_model,
-}
+def display(v: object) -> str:
+    if isinstance(v, bool):
+        return str(v)
+    if isinstance(v, float):
+        if v == 0:
+            return "0"
+        if v.is_integer() and abs(v) < 1e8:
+            return str(int(v))
+        return f"{v:.10g}"
+    return str(v)
 
 
-def format_value(value: object) -> str:
-    """
-    Format parameter values for readable tables.
-    """
-    if isinstance(value, float):
-        if value == 0:
-            return "0.0"
-
-        if abs(value) >= 1e5 or abs(value) < 1e-4:
-            return f"{value:.1e}"
-
-        return f"{value:g}"
-
-    return str(value)
-
-
-def extract_default_parameters(builder_function) -> pd.DataFrame:
-    """
-    Extract default keyword-only parameters from a model constructor.
-    """
-    signature = inspect.signature(builder_function)
-
-    rows = []
-
-    for name, parameter in signature.parameters.items():
-        if parameter.default is inspect.Parameter.empty:
+def source_defaults(path: Path, function_name: str) -> dict[str, object]:
+    if not path.is_file():
+        raise FileNotFoundError(f"Missing model module: {path}")
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    f = next((node for node in tree.body
+              if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == function_name), None)
+    if f is None:
+        raise ValueError(f"Function {function_name} not found in {path}")
+    parameters: dict[str, object] = {}
+    for arg, default in zip(f.args.kwonlyargs, f.args.kw_defaults):
+        if default is None:
             continue
-
-        value = parameter.default
-        description = PARAMETER_DESCRIPTIONS.get(
-            name,
-            "No description added yet.",
-        )
-
-        rows.append(
-            {
-                "Parameter": name,
-                "Value": format_value(value),
-                "Description": description,
-            }
-        )
-
-    return pd.DataFrame(rows)
+        try:
+            parameters[arg.arg] = ast.literal_eval(default)
+        except (ValueError, TypeError, SyntaxError) as exc:
+            raise ValueError(f"Parameter {arg.arg} in {path} has a computed default. "
+                             "Cannot safely extract its runtime value by static parsing.") from exc
+    if not parameters:
+        raise ValueError(f"No literal keyword defaults found in {path}")
+    return parameters
 
 
-def save_markdown_table(dataframe: pd.DataFrame, output_path: Path) -> None:
-    """
-    Save table as markdown.
-    """
-    markdown = dataframe.to_markdown(index=False)
-    output_path.write_text(markdown, encoding="utf-8")
+def save_markdown(df: pd.DataFrame, path: Path) -> None:
+    def quote(v: object) -> str:
+        return str(v).replace("|", "\\|").replace("\n", " ")
+    lines = ["| " + " | ".join(quote(c) for c in df.columns) + " |",
+             "|" + "|".join("---" for _ in df.columns) + "|"]
+    for row in df.itertuples(index=False, name=None):
+        lines.append("| " + " | ".join(quote(v) for v in row) + " |")
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
-def save_png_table(
-    dataframe: pd.DataFrame,
-    output_path: Path,
-    title: str,
-) -> None:
-    """
-    Save table as a PNG image using matplotlib.
-    """
-    n_rows = len(dataframe)
-
-    figure_width = 14
-    figure_height = max(3, 0.45 * n_rows + 1.4)
-
-    fig, ax = plt.subplots(figsize=(figure_width, figure_height))
+def save_image(df: pd.DataFrame, path: Path, title: str, widths: list[float], note: str = "") -> None:
+    chars = [max(12, int(128 * w)) for w in widths]
+    values = [list(map(str, df.columns))] + [list(map(str, row)) for row in df.itertuples(index=False, name=None)]
+    wrapped, heights = [], []
+    for i, row in enumerate(values):
+        cells = ["\n".join(textwrap.wrap(v, width=chars[j], break_long_words=False,
+                                         break_on_hyphens=False) or [""]) for j, v in enumerate(row)]
+        wrapped.append(cells)
+        heights.append((0.42 if i == 0 else 0.31) + 0.22 * (max(c.count("\n") + 1 for c in cells) - 1))
+    fig_height = max(2.2, sum(heights) + 1.15)
+    fig, ax = plt.subplots(figsize=(15.5, fig_height))
     ax.axis("off")
-
-    ax.set_title(
-        title,
-        fontsize=16,
-        fontweight="bold",
-        pad=18,
-    )
-
-    table = ax.table(
-        cellText=dataframe.values,
-        colLabels=dataframe.columns,
-        cellLoc="left",
-        colLoc="left",
-        loc="center",
-        colWidths=[0.25, 0.15, 0.60],
-    )
-
-    table.auto_set_font_size(False)
-    table.set_fontsize(10)
-    table.scale(1, 1.4)
-
-    for column_idx in range(len(dataframe.columns)):
-        header_cell = table[(0, column_idx)]
-        header_cell.set_text_props(weight="bold")
-        header_cell.set_facecolor("#f2f2f2")
-
-    for row_idx in range(1, n_rows + 1):
-        table[(row_idx, 1)].set_text_props(ha="center")
-
-    fig.tight_layout()
-    fig.savefig(output_path, dpi=200, bbox_inches="tight")
+    table = Table(ax, bbox=[0, 0, 1, 1])
+    for i, row in enumerate(wrapped):
+        for j, value in enumerate(row):
+            face = "#23354b" if i == 0 else ("#f1f4f7" if i % 2 == 0 else "white")
+            cell = table.add_cell(i, j, widths[j], heights[i] / sum(heights),
+                                  text=value, facecolor=face, loc="left", edgecolor="#dee4e9")
+            cell.PAD = 0.025
+            cell.set_linewidth(0.45)
+            cell.get_text().set_color("white" if i == 0 else "#223042")
+            cell.get_text().set_fontsize(9 if i == 0 else 8.5)
+            cell.get_text().set_fontweight("bold" if i == 0 else "normal")
+    ax.add_table(table)
+    fig.suptitle(title, fontsize=17, fontweight="bold", y=0.997, color="#23354b")
+    if note:
+        fig.text(0.02, 0.008, note, ha="left", fontsize=8, color="#515a67")
+    fig.subplots_adjust(left=0.02, right=0.98, top=1 - 0.74 / fig_height,
+                        bottom=(0.38 if note else 0.08) / fig_height)
+    fig.savefig(path, dpi=170, facecolor="white")
     plt.close(fig)
 
 
-def export_parameter_table(
-    *,
-    model_name: str,
-    builder_function,
-    output_dir: Path,
-) -> None:
-    """
-    Export CSV, markdown, and PNG tables for one model.
-    """
-    model_output_dir = output_dir / model_name
-    model_output_dir.mkdir(parents=True, exist_ok=True)
+def save_table(df: pd.DataFrame, directory: Path, stem: str, title: str,
+               widths: list[float], note: str = "") -> None:
+    directory.mkdir(parents=True, exist_ok=True)
+    df.to_csv(directory / f"{stem}.csv", index=False)
+    save_markdown(df, directory / f"{stem}.md")
+    save_image(df, directory / f"{stem}.png", title, widths, note)
+    print(f"  {directory / (stem + '.png')}")
 
-    dataframe = extract_default_parameters(builder_function)
 
-    csv_path = model_output_dir / "parameters.csv"
-    markdown_path = model_output_dir / "parameters.md"
-    png_path = model_output_dir / "parameters.png"
-
-    dataframe.to_csv(csv_path, index=False)
-    save_markdown_table(dataframe, markdown_path)
-    save_png_table(
-        dataframe=dataframe,
-        output_path=png_path,
-        title=f"{model_name}: default model parameters",
-    )
-
-    print(f"\nSaved parameter table for {model_name}")
-    print(f"CSV:      {csv_path}")
-    print(f"Markdown: {markdown_path}")
-    print(f"PNG:      {png_path}")
+def check_run_metadata(models: dict[str, dict], runs_root: Path) -> None:
+    """Warn if runner overrides disagree with current source defaults."""
+    if not runs_root.exists():
+        return
+    discrepancies = []
+    for environment in ("local_A", "local_B", "global", "hybrid"):
+        for model_name, defaults in models.items():
+            metadata = runs_root / environment / "model_runs" / model_name / "run_metadata.json"
+            if not metadata.is_file():
+                continue
+            run = json.loads(metadata.read_text(encoding="utf-8"))
+            for key, value in run.get("model_kwargs", {}).items():
+                if key in defaults and defaults[key] != value:
+                    discrepancies.append(f"{environment}/{model_name}: {key} source={defaults[key]} run={value}")
+    if discrepancies:
+        print("\nWARNING: saved run metadata overrides do not match current builder defaults:")
+        for diff in discrepancies:
+            print("  " + diff)
+        print("The exported tables report builder defaults, not these differing run overrides.")
+    else:
+        print("No conflicting builder defaults were found in available run_metadata.json overrides.")
 
 
 def main() -> None:
-    """
-    Export parameter tables for all model constructors.
-    """
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-
-    for model_name, builder_function in MODEL_BUILDERS.items():
-        export_parameter_table(
-            model_name=model_name,
-            builder_function=builder_function,
-            output_dir=OUTPUT_DIR,
-        )
-
-    print("\nFinished exporting HGF-random-walk model parameter tables.")
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--model-dir", type=Path, default=PROJECT_ROOT / "src" / "models")
+    parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT)
+    parser.add_argument("--runs-root", type=Path, default=PROJECT_ROOT / "outputs" / "hgf_walk_outputs")
+    args = parser.parse_args()
+    models: dict[str, dict[str, object]] = {}
+    parameter_order: list[str] = []
+    for model_name, (filename, function) in MODEL_SOURCES.items():
+        path = args.model_dir / filename
+        params = source_defaults(path, function)
+        models[model_name] = params
+        for key in params:
+            if key not in parameter_order:
+                parameter_order.append(key)
+        df = pd.DataFrame([
+            {"Parameter": name, "Value": display(value),
+             "Explanation": DESCRIPTIONS.get(name, "Current constructor default.")}
+            for name, value in params.items()
+        ])
+        print(f"Exporting {model_name} from {path}")
+        save_table(df, args.output_dir / model_name, "parameters", f"{model_name}: inference parameters",
+                   [0.29, 0.14, 0.57],
+                   note=f"Source: src/models/{filename} defaults; NOT Bayesian-fitted parameters.")
+    comparison = pd.DataFrame([
+        {"Parameter": p, **{model: display(models[model][p]) if p in models[model] else "not applicable"
+                            for model in MODEL_SOURCES}}
+        for p in parameter_order
+    ])
+    save_table(comparison, args.output_dir, "model_comparison",
+               "Comparison of three fixed inference models", [0.28, 0.24, 0.24, 0.24],
+               note="Current constructor defaults; different models have structurally different parameters.")
+    check_run_metadata(models, args.runs_root)
+    print("Model parameter tables finished. No models or saved trajectories were modified.")
 
 
 if __name__ == "__main__":

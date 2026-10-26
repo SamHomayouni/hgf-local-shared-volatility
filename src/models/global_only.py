@@ -44,17 +44,17 @@ def get_node_ids() -> dict[str, int]:
 def build_global_only_model(*, input_precision: float = 100.0,
                             value_mean: float = 0.0,
                             value_precision: float = 1.0,
-                            value_tonic_volatility: float = -7.824,
-                            value_autoconnection_strength: float = 0.95,
+                            value_tonic_volatility: float = -2.0,
+                            value_autoconnection_strength: float = 1, #0.95
                             shared_volatility_mean: float = 0.0,
                             shared_volatility_precision: float = 1.0,
-                            shared_volatility_tonic_volatility: float = -6.0,
+                            shared_volatility_tonic_volatility: float = -3.0, #-6.0
                             value_coupling: float = 1.0,
                             shared_volatility_coupling: float = 1.0,
                             update_type: str = "eHGF",
                             max_posterior_precision: float = 1e10) -> Network:
     """
-    Build the global-only model.
+    Build the global-only model.,
 
     Parameters
     ----------

@@ -1,0 +1,91 @@
+# Shared noisy pulse signal -> local volatility states -> values -> observations.
+# Weber et al., uploaded updated manuscript: Table 1, Example 1, Process column.
+# Observation epsilon follows APPENDIX EQ. 65: variance=exp(epsilon), not SD=epsilon.
+# This is a Weber-inspired extension, not an exact Figure 6 replication.
+
+simulation:
+  name: "two_stream_hgf_hybrid_weber"
+  random_seed: 123
+  n_trials: 1000
+
+# NOMINAL manipulation labels. Actual q is stochastic, including within blocks.
+# Intervals are zero-based and half-open. Both streams receive the shared drive.
+blocks:
+  - name: "S1"
+    start_index: 0
+    stop_index: 200
+    stream_a_regime: "stable"
+    stream_b_regime: "stable"
+  - name: "V1"
+    start_index: 200
+    stop_index: 400
+    stream_a_regime: "volatile"
+    stream_b_regime: "volatile"
+  - name: "S2"
+    start_index: 400
+    stop_index: 600
+    stream_a_regime: "stable"
+    stream_b_regime: "stable"
+  - name: "V2"
+    start_index: 600
+    stop_index: 800
+    stream_a_regime: "volatile"
+    stream_b_regime: "volatile"
+  - name: "S3"
+    start_index: 800
+    stop_index: 1000
+    stream_a_regime: "stable"
+    stream_b_regime: "stable"
+
+environment:
+  # Project-specified: c[t] = m[t] + 0.005*z_c[t], independently each trial.
+  # Noisy 20-trial plateaus, not a random walk or smoothed impulses.
+  # +/-0.1 are the pulse MEANS, not bounds on individual draws.
+  shared_signal:
+    baseline_mean: 0.0
+    noise_sd: 0.005
+    pulses:
+      - name: "up_1"
+        start_index: 200
+        stop_index: 220
+        mean: 0.1
+      - name: "down_1"
+        start_index: 400
+        stop_index: 420
+        mean: -0.1
+      - name: "up_2"
+        start_index: 600
+        stop_index: 620
+        mean: 0.1
+      - name: "down_2"
+        start_index: 800
+        stop_index: 820
+        mean: -0.1
+
+  # x_s[t] = x_s[t-1] + sqrt(q_s[t])*z_x_s[t]
+  # q_s[t] = exp(-2 + 0.5*v_s[t]); q_low/q_high are NOT assigned.
+  latent_dynamics:
+    lambda_x: 1.0
+    rho_x: 0.0
+    value_tonic_volatility: -2.0
+    volatility_coupling: 0.5
+
+  # v_s[t] = v_s[t-1] + 2*c[t] + exp(-3/2)*z_v_s[t]
+  # alpha=2 is the PROCESS value. Weber's Model-column alpha=0.05 is different.
+  local_volatility_dynamics:
+    lambda_v: 1.0
+    rho_v: 0.0
+    tonic_volatility: -3.0
+    shared_value_coupling: 2.0
+
+  # Observation variance=e; SD=exp(0.5); corresponding input precision=exp(-1).
+  observation:
+    log_variance: -4.605170186 #I want the observation SD to be 0.10 so I need to use this value here.
+
+  # Initial values BEFORE the update at saved trial_index=0 (existing convention).
+  stream_a:
+    initial_mean: 0.0
+    initial_volatility: 6.0
+  stream_b:
+    initial_mean: 0.0
+    initial_volatility: 4.0

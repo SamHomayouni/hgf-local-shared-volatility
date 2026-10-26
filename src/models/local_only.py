@@ -49,11 +49,11 @@ def get_node_ids() -> dict[str, int]:
 def build_local_only_model(*, input_precision: float = 100.0,
                            value_mean: float = 0.0,
                            value_precision: float = 1.0,
-                           value_tonic_volatility: float = -7.824,
-                           value_autoconnection_strength: float = 0.95,
+                           value_tonic_volatility: float = -2.0,
+                           value_autoconnection_strength: float = 1, #0.95
                            volatility_mean: float = 0.0,
                            volatility_precision: float = 1.0,
-                           volatility_tonic_volatility: float = -6.0,
+                           volatility_tonic_volatility: float = -3.0, #-6.0
                            value_coupling: float = 1.0,
                            volatility_coupling: float = 1.0,
                            update_type: str = "eHGF",
