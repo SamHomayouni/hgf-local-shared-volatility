@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+import json
 
 import numpy as np
 import pandas as pd
@@ -13,6 +14,7 @@ from src.analysis.learning_rates import (
     calculate_stream_block_effects,
     calculate_trialwise_learning_rates,
     infer_environment_type,
+    resolve_environment_type,
 )
 
 
@@ -28,7 +30,7 @@ def make_environment_labels(
         volatile_regimes = ("volatile", "stable")
     elif environment_type == "local_B":
         volatile_regimes = ("stable", "volatile")
-    elif environment_type == "global":
+    elif environment_type in {"global", "hybrid"}:
         volatile_regimes = ("volatile", "volatile")
     else:
         raise ValueError(environment_type)
@@ -184,6 +186,7 @@ def test_block_effect_calculation() -> None:
         ("local_A", "local_A"),
         ("local_B", "local_B"),
         ("global", "global"),
+        ("hybrid", "global"),  # Nominal labels cannot distinguish Hybrid.
     ],
 )
 def test_environment_type_inference(
@@ -193,6 +196,56 @@ def test_environment_type_inference(
     labels = make_environment_labels(environment_type)
 
     assert infer_environment_type(labels) == expected
+
+def test_hybrid_environment_detected_from_metadata(tmp_path) -> None:
+    model_runs_dir = tmp_path / "moved_data" / "model_runs"
+    model_runs_dir.mkdir(parents=True)
+    (model_runs_dir.parent / "environment_metadata.json").write_text(
+        json.dumps({"environment_type": "hybrid"}),
+        encoding="utf-8",
+    )
+
+    assert resolve_environment_type(
+        labels=make_environment_labels("hybrid"),
+        model_runs_dir=model_runs_dir,
+    ) == "hybrid"
+
+
+def test_hybrid_environment_detected_from_folder(tmp_path) -> None:
+    model_runs_dir = tmp_path / "hybrid" / "model_runs"
+    model_runs_dir.mkdir(parents=True)
+
+    assert resolve_environment_type(
+        labels=make_environment_labels("hybrid"),
+        model_runs_dir=model_runs_dir,
+    ) == "hybrid"
+
+
+def test_hybrid_environment_rejects_inconsistent_regimes(tmp_path) -> None:
+    model_runs_dir = tmp_path / "hybrid" / "model_runs"
+    model_runs_dir.mkdir(parents=True)
+
+    with pytest.raises(ValueError, match="conflicts with"):
+        resolve_environment_type(
+            labels=make_environment_labels("local_A"),
+            model_runs_dir=model_runs_dir,
+        )
+
+
+def test_hybrid_block_effects_are_descriptive_and_cti_is_undefined() -> None:
+    result = calculate_effects_for_model(
+        block_summary=make_block_summary(),
+        model_name=MODEL_NAME,
+        environment_type="hybrid",
+    )
+
+    assert result["stream_A_effect_average"] == pytest.approx(4.0)
+    assert result["stream_B_effect_average"] == pytest.approx(3.0)
+    assert math.isnan(result["cross_transfer_index"])
+    assert result["cross_transfer_index_interpretable"] is False
+    assert result["cross_transfer_direction"] == "not_applicable"
+    assert "nominal" in result["interpretation_note"].lower()
+
 
 def test_local_A_cti_is_B_effect_divided_by_A_effect() -> None:
     result = calculate_effects_for_model(
@@ -312,4 +365,3 @@ def test_cti_is_not_interpretable_when_direct_effect_is_nonpositive() -> None:
         result["cross_transfer_index_interpretable"]
         is False
     )
-

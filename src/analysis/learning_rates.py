@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import math
+import json
 
 import numpy as np
 import pandas as pd
@@ -181,6 +182,7 @@ def infer_environment_type(labels: pd.DataFrame) -> str:
             "global"
     """
 
+    # Nominal regime labels alone cannot distinguish Hybrid from Global.
     block_regimes = get_block_regimes(labels)
 
     stable_blocks = block_regimes[
@@ -237,6 +239,65 @@ def infer_environment_type(labels: pd.DataFrame) -> str:
         f"{block_regimes.to_string(index=False)}"
     )
 
+def resolve_environment_type(
+    *,
+    labels: pd.DataFrame,
+    model_runs_dir: Path,
+    requested: str = "auto",
+) -> str:
+    """Identify the generative environment using provenance rather than block labels.
+
+    Hybrid and Global have the same nominal A/B regime patterns.
+    """
+    supported = {"local_A", "local_B", "global", "hybrid"}
+    if requested != "auto" and requested not in supported:
+        raise ValueError(f"Unknown requested environment type: {requested}")
+
+    environment_dir = Path(model_runs_dir).parent
+    metadata_path = environment_dir / "environment_metadata.json"
+    metadata_type = None
+    if metadata_path.is_file():
+        with metadata_path.open("r", encoding="utf-8") as file:
+            metadata = json.load(file)
+        metadata_type = metadata.get("environment_type")
+        if metadata_type is not None and metadata_type not in supported:
+            raise ValueError(
+                f"Unrecognized environment_type in {metadata_path}: "
+                f"{metadata_type!r}"
+            )
+
+    if (
+        metadata_type is not None
+        and requested != "auto"
+        and requested != metadata_type
+    ):
+        raise ValueError(
+            f"Requested {requested!r} conflicts with environment metadata "
+            f"({metadata_type!r})."
+        )
+
+    if requested != "auto":
+        environment_type = requested
+    elif metadata_type is not None:
+        environment_type = metadata_type
+    elif environment_dir.name in supported:
+        environment_type = environment_dir.name
+    else:
+        environment_type = infer_environment_type(labels)
+
+    nominal_label_type = infer_environment_type(labels)
+    expected_label_type = (
+        "global" if environment_type == "hybrid" else environment_type
+    )
+    if nominal_label_type != expected_label_type:
+        raise ValueError(
+            f"Environment {environment_type!r} conflicts with the A/B "
+            f"regime pattern {nominal_label_type!r} in model_labels.csv."
+        )
+
+    return environment_type
+
+
 def environment_display_name(environment_type: str) -> str:
     """
     Human-readable environment name.
@@ -246,6 +307,7 @@ def environment_display_name(environment_type: str) -> str:
         "local_A": "Local-A environment",
         "local_B": "Local-B environment",
         "global": "Global environment",
+        "hybrid": "Hybrid environment",
     }
 
     if environment_type not in mapping:
@@ -565,8 +627,12 @@ def calculate_effects_for_model(
         CTI = A / B
 
     global:
-        A and B are both directly volatile.
-        No CTI is defined.
+        Both streams are directly manipulated; no CTI is defined.
+
+    hybrid:
+        Both streams receive the shared drive, while their process variances
+        change stochastically. Block effects are descriptive nominal contrasts;
+        no CTI is defined.
     """
 
     a_effects = calculate_stream_block_effects(
@@ -644,7 +710,7 @@ def calculate_effects_for_model(
             "Stream A effect is interpreted as cross-stream change."
         )
 
-    elif environment_type == "global":
+    elif environment_type in {"global", "hybrid"}:
         direct_stream = "A_and_B"
         cross_stream = "not_applicable"
 
@@ -655,11 +721,20 @@ def calculate_effects_for_model(
         cross_transfer_index = math.nan
         cti_is_interpretable = False
 
-        interpretation_note = (
-            "Both streams are objectively volatile. "
-            "A and B effects are both direct volatility effects; "
-            "cross-transfer index is not applicable."
-        )
+        if environment_type == "hybrid":
+            interpretation_note = (
+                "Hybrid: V/S block labels are nominal. Both streams receive "
+                "the shared drive, while their process variances fluctuate. "
+                "V-minus-adjacent-S learning-rate differences are descriptive "
+                "block contrasts, not isolated volatility effects; "
+                "cross-transfer index is not defined."
+            )
+        else:
+            interpretation_note = (
+                "Both streams are objectively volatile. "
+                "A and B effects are both direct volatility effects; "
+                "cross-transfer index is not applicable."
+            )
 
     else:
         raise ValueError(
