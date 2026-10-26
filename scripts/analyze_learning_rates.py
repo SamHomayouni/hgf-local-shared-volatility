@@ -1,6 +1,6 @@
 """
-Analyze trial-wise HGF learning rates across local-A, local-B, and
-global-like volatility environments.
+Analyze trial-wise HGF learning rates across Local-A, Global, and
+Hybrid environments (also supports Local-B).
 
 Learning-rate definition
 ------------------------
@@ -8,11 +8,11 @@ For every inference model:
 
     Stream A:
         learning_rate_A(k)
-        = x_0_expected_precision(k) / x_2_expected_precision(k)
+        = x_0_expected_precision(k) / x_2_precision(k)
 
     Stream B:
         learning_rate_B(k)
-        = x_1_expected_precision(k) / x_3_expected_precision(k)
+        = x_1_expected_precision(k) / x_3_precision(k)
 
 where:
 
@@ -29,7 +29,9 @@ These node IDs are shared by all three current inference models:
 
 Environment types
 -----------------
-The script automatically infers the environment type from model_labels.csv.
+The script uses environment metadata or the environment directory name to
+identify Hybrid, because Hybrid and Global share the same nominal block labels.
+The --environment-type option can override the automatic detection when needed.
 
 local_A:
     V1 and V2:
@@ -45,6 +47,10 @@ global:
     V1 and V2:
         A volatile
         B volatile
+
+hybrid:
+    V/S labels are NOMINAL, not fixed volatility regimes. Actual process
+    variances fluctuate. Both streams receive the shared drive.
 
 Block-wise volatility effects
 -----------------------------
@@ -91,6 +97,10 @@ global:
     D_B = B's volatility effect
 
     CTI is not defined because both streams are objectively volatile.
+
+hybrid:
+    D_A and D_B are descriptive nominal V-versus-neighboring-S contrasts.
+    CTI is not defined because the shared drive affects both streams.
 
 Inputs
 ------
@@ -152,7 +162,7 @@ from src.analysis.learning_rates import (  # noqa: E402
     calculate_trialwise_learning_rates,
     environment_display_name,
     get_block_regimes,
-    infer_environment_type,
+    resolve_environment_type,
     load_labels,
     load_model_trajectories,
 )
@@ -198,6 +208,16 @@ def build_arg_parser() -> argparse.ArgumentParser:
         ),
         help=(
             "Directory containing model run outputs."
+        ),
+    )
+
+    parser.add_argument(
+        "--environment-type",
+        choices=["auto", "local_A", "local_B", "global", "hybrid"],
+        default="auto",
+        help=(
+            "Environment identity. 'auto' uses environment_metadata.json "
+            "when available, then the environment folder, then regime labels."
         ),
     )
 
@@ -294,10 +314,10 @@ def main() -> None:
         model_runs_dir
     )
 
-    environment_type = (
-        infer_environment_type(
-            labels
-        )
+    environment_type = resolve_environment_type(
+        labels=labels,
+        model_runs_dir=model_runs_dir,
+        requested=args.environment_type,
     )
 
     environment_name = (
@@ -326,6 +346,13 @@ def main() -> None:
             index=False
         )
     )
+
+    if environment_type == "hybrid":
+        print(
+            "\nHybrid note: S/V labels are nominal, not fixed "
+            "volatility regimes. Block contrasts are descriptive. "
+            "CTI is undefined because both streams receive the shared drive."
+        )
 
     # -------------------------------------------------------------
     # Calculate trial-wise learning rates.
